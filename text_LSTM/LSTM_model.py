@@ -6,7 +6,7 @@ import numpy as np
 from create_voc_index import load_pretraind_embedding
 class TextRNN:
     def __init__(self,num_classes, learning_rate, batch_size, decay_steps, decay_rate,sequence_length,
-                 vocab_size,embed_size,is_training,initializer=tf.random_normal_initializer(stddev=0.1)):
+                 vocab_size,embed_size,is_training,hidden_size,initializer=tf.random_normal_initializer(stddev=0.1)):
         """init all hyperparameter here"""
         # set hyperparamter
         self.num_classes = num_classes
@@ -14,7 +14,7 @@ class TextRNN:
         self.sequence_length=sequence_length
         self.vocab_size=vocab_size
         self.embed_size=embed_size
-        self.hidden_size=embed_size
+        self.hidden_size=hidden_size
         self.is_training=is_training
         self.learning_rate=learning_rate
         self.initializer=initializer
@@ -42,8 +42,8 @@ class TextRNN:
     def instantiate_weights(self):
         """define all weights here"""
         with tf.name_scope("embedding"): # embedding matrix
-            # self.Embedding = tf.get_variable("Embedding",shape=[self.vocab_size, self.embed_size],initializer=self.initializer) #[vocab_size,embed_size] tf.random_uniform([self.vocab_size, self.embed_size],-1.0,1.0)
-            _,self.Embedding = load_pretraind_embedding("./glove.6B.50d.txt")
+            self.Embedding = tf.get_variable("Embedding",shape=[self.vocab_size, self.embed_size],initializer=self.initializer) #[vocab_size,embed_size] tf.random_uniform([self.vocab_size, self.embed_size],-1.0,1.0)
+            # _,self.Embedding = load_pretraind_embedding("../../datafile/glove.6B.50d.txt")
             self.W_projection = tf.get_variable("W_projection",shape=[self.hidden_size, self.num_classes],initializer=self.initializer) #[embed_size,label_size]
             self.b_projection = tf.get_variable("b_projection",shape=[self.num_classes])       #[label_size]
 

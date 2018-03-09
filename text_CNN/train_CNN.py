@@ -31,11 +31,11 @@ tf.app.flags.DEFINE_boolean("use_embedding",True,"whether to use embedding or no
 #tf.app.flags.DEFINE_string("cache_path","text_cnn_checkpoint/data_cache.pik","checkpoint location for the model")
 #train-zhihu4-only-title-all.txt
 tf.app.flags.DEFINE_string("traning_data_path","train-zhihu4-only-title-all.txt","path of traning data.") #O.K.train-zhihu4-only-title-all.txt-->training-data/test-zhihu4-only-title.txt--->'training-data/train-zhihu5-only-title-multilabel.txt'
-tf.app.flags.DEFINE_integer("num_filters", 2, "number of filters") #256--->512
-tf.app.flags.DEFINE_string("word2vec_model_path","zhihu-word2vec-title-desc.bin-100","word2vec's vocabulary and vectors") #zhihu-word2vec.bin-100-->zhihu-word2vec-multilabel-minicount15.bin-100
+tf.app.flags.DEFINE_integer("num_filters", 128, "number of filters") #256--->512
 tf.app.flags.DEFINE_boolean("multi_label_flag",False,"use multi label or single label.")
 tf.app.flags.DEFINE_string("save_file_name",'train_hist.p','output hsitory file name')
-filter_sizes=[2] #[1,2,3,4,5,6,7]
+tf.app.flags.DEFINE_float("drop_out",0.5,"drop out ratio")
+filter_sizes = [1,2,3,4,5,6,7]
 vocab_size  = 400000 #no use
 
 #1.load data(X:list of lint,y:int). 2.create session. 3.feed data. 4.training (5.validation) ,(6.prediction)
@@ -43,7 +43,7 @@ def main(_):
     filter_sizes=[1,2,3,4,5,6,7] #[1,2,3,4,5,6,7]
     vocab_size  = 400000 #no use
     #1.load the data
-    trainX,trainY,testX,testY = get_data('../../datafile/train_id_mat.npy','../../datafile/test_id_mat.npy')
+    trainX,trainY,testX,testY = get_data('../datafile/train_id_mat.npy','../datafile/test_id_mat.npy')
     print "The size of the training data is ", trainX.shape[0]
     print "The size of the testing data is ", testX.shape[0]
     #initialize the data structure to save the train/text loss and acc
@@ -64,7 +64,7 @@ def main(_):
             print('Initializing Variables')
             sess.run(tf.global_variables_initializer())
             if FLAGS.use_embedding: #load pre-trained word embedding
-                _,word_Embedding = load_pretraind_embedding("../../datafile/glove.6B.50d.txt")
+                _,word_Embedding = load_pretraind_embedding("../datafile/glove.6B.50d.txt")
                 t_assign_embedding = tf.assign(textCNN.Embedding,word_Embedding)  # assign this value to our embedding variables of our model.
                 sess.run(t_assign_embedding)
 
@@ -78,7 +78,7 @@ def main(_):
                 start_time = time.time()
                 if epoch==0 and counter==0:
                     print("trainX[start:end]:",trainX[start:end])#;print("trainY[start:end]:",trainY[start:end])
-                feed_dict = {textCNN.input_x: trainX[start:end],textCNN.dropout_keep_prob: 0.5}
+                feed_dict = {textCNN.input_x: trainX[start:end],textCNN.dropout_keep_prob: FLAGS.drop_out}
                 if not FLAGS.multi_label_flag:
                     feed_dict[textCNN.input_y] = trainY[start:end]
                 else:
@@ -112,7 +112,8 @@ def main(_):
         # pickle.dump(test_loss_hist,open('test_loss.p','wb'))
         # pickle.dump(test_acc_hist,open('test_acc.p','wb'))
         train_hist = [train_loss_hist,train_acc_hist,test_loss_hist,test_acc_hist]
-        pickle.dump(train_hist,open(FLAGS.save_file_name,'wb'))
+        save_file_name = FLAGS.save_file_name
+        pickle.dump(train_hist,open(save_file_name,'wb'))
 
 
 

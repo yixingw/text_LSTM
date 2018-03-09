@@ -6,10 +6,12 @@ reload(sys)
 sys.setdefaultencoding('utf8')
 import tensorflow as tf
 import numpy as np
-from s_lstm import TextRNN
+from LSTM_model import TextRNN
 import os
 import pickle
 from get_train_test_data import get_data
+from create_voc_index import load_pretraind_embedding
+
 #configuration
 FLAGS=tf.app.flags.FLAGS
 tf.app.flags.DEFINE_integer("num_classes",2,"number of label")
@@ -23,20 +25,25 @@ tf.app.flags.DEFINE_integer("embed_size",50,"embedding size")
 tf.app.flags.DEFINE_boolean("is_training",True,"is traning.true:tranining,false:testing/inference")
 tf.app.flags.DEFINE_integer("num_epochs",60,"epoch number")
 tf.app.flags.DEFINE_integer("validate_every", 1, "Validate every validate_every epochs.") #每10轮做一次验证
-tf.app.flags.DEFINE_boolean("use_embedding",False,"whether to use embedding or not.")
+tf.app.flags.DEFINE_boolean("use_embedding",True,"whether to use embedding or not.")
+tf.app.flags.DEFINE_string("save_file_name",'train_hist.p','output hsitory file name')
+tf.app.flags.DEFINE_float("drop_out",0.5,"drop out ratio")
+tf.app.flags.DEFINE_integer("hidden_size",50,"number of LSTM hidden unit")
 vocab_size  = 400000 #no use
 #1.load data(X:list of lint,y:int). 2.create session. 3.feed data. 4.training (5.validation) ,(6.prediction)
 def main(_):
     #1. Get the train and test data 
-    trainX,trainY,testX,testY = get_data('train_id_mat.npy','test_id_mat.npy')
-
+    trainX,trainY,testX,testY = get_data('../../datafile/train_id_mat.npy','../../datafile/test_id_mat.npy')
+    train_loss_hist,train_acc_hist,test_loss_hist,test_acc_hist = [],[],[],[]
+    print "The size of the training data is ", trainX.shape[0]
+    print "The size of the testing data is ", testX.shape[0]
     #2.create session.
     config=tf.ConfigProto()
     config.gpu_options.allow_growth=True
     with tf.Session(config=config) as sess:
         #Instantiate Model
         textRNN=TextRNN(FLAGS.num_classes, FLAGS.learning_rate, FLAGS.batch_size, FLAGS.decay_steps, FLAGS.decay_rate, FLAGS.sequence_length,
-        vocab_size, FLAGS.embed_size, FLAGS.is_training)
+        vocab_size, FLAGS.embed_size, FLAGS.is_training,FLAGS.hidden_size)
         #Initialize Save
         saver=tf.train.Saver()
         if os.path.exists(FLAGS.ckpt_dir+"checkpoint"):
@@ -46,7 +53,9 @@ def main(_):
             print('Initializing Variables')
             sess.run(tf.global_variables_initializer())
             if FLAGS.use_embedding: #load pre-trained word embedding
-                assign_pretrained_word_embedding(sess, vocabulary_index2word, vocab_size, textRNN,word2vec_model_path=FLAGS.word2vec_model_path)
+                _,word_Embedding = load_pretraind_embedding("../../datafile/glove.6B.50d.txt")
+                t_assign_embedding = tf.assign(textRNN.Embedding,word_Embedding)  # assign this value to our embedding variables of our model.
+                sess.run(t_assign_embedding)
         curr_epoch=sess.run(textRNN.epoch_step)
         #3.feed data & training
         number_of_training_data=len(trainX)
@@ -57,10 +66,12 @@ def main(_):
                 if epoch==0 and counter==0:
                     print("trainX[start:end]:",trainX[start:end])#;print("trainY[start:end]:",trainY[start:end])
                 curr_loss,curr_acc,_=sess.run([textRNN.loss_val,textRNN.accuracy,textRNN.train_op],feed_dict={textRNN.input_x:trainX[start:end],textRNN.input_y:trainY[start:end]
-                    ,textRNN.dropout_keep_prob:1}) #curr_acc--->TextCNN.accuracy -->,textRNN.dropout_keep_prob:1
+                    ,textRNN.dropout_keep_prob:FLAGS.drop_out}) #curr_acc--->TextCNN.accuracy -->,textRNN.dropout_keep_prob:1
                 loss,counter,acc=loss+curr_loss,counter+1,acc+curr_acc
-                if counter %10==0:
+                if counter %1==0:
                     print("Epoch %d\tBatch %d\tTrain Loss:%.3f\tTrain Accuracy:%.3f" %(epoch,counter,loss/float(counter),acc/float(counter))) #tTrain Accuracy:%.3f---》acc/float(counter)
+                    train_loss_hist.append(loss/float(counter)) 
+                    train_acc_hist.append(acc/float(counter))
             #epoch increment
             print("going to increment epoch counter....")
             sess.run(textRNN.epoch_increment)
@@ -69,12 +80,15 @@ def main(_):
             if epoch % FLAGS.validate_every==0:
                 # eval_loss, eval_acc=do_eval(sess,textRNN,testX,testY,batch_size,vocabulary_index2word_label)
                 eval_loss, eval_acc=do_eval(sess,textRNN,testX,testY,batch_size)
-
+                test_loss_hist.append(eval_loss)
+                test_acc_hist.append(eval_acc)
                 print("Epoch %d Validation Loss:%.3f\tValidation Accuracy: %.3f" % (epoch,eval_loss,eval_acc))
                 #save model to checkpoint
                 save_path=FLAGS.ckpt_dir+"model.ckpt"
                 saver.save(sess,save_path,global_step=epoch)
         test_loss, test_acc = do_eval(sess, textRNN, testX, testY, batch_size)
+        train_hist = [train_loss_hist,train_acc_hist,test_loss_hist,test_acc_hist]
+        pickle.dump(train_hist,open(save_file_name,'wb'))
     pass
 
 
