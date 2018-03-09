@@ -31,15 +31,17 @@ tf.app.flags.DEFINE_boolean("use_embedding",True,"whether to use embedding or no
 #tf.app.flags.DEFINE_string("cache_path","text_cnn_checkpoint/data_cache.pik","checkpoint location for the model")
 #train-zhihu4-only-title-all.txt
 tf.app.flags.DEFINE_string("traning_data_path","train-zhihu4-only-title-all.txt","path of traning data.") #O.K.train-zhihu4-only-title-all.txt-->training-data/test-zhihu4-only-title.txt--->'training-data/train-zhihu5-only-title-multilabel.txt'
-tf.app.flags.DEFINE_integer("num_filters", 128, "number of filters") #256--->512
+tf.app.flags.DEFINE_integer("num_filters", 2, "number of filters") #256--->512
 tf.app.flags.DEFINE_string("word2vec_model_path","zhihu-word2vec-title-desc.bin-100","word2vec's vocabulary and vectors") #zhihu-word2vec.bin-100-->zhihu-word2vec-multilabel-minicount15.bin-100
 tf.app.flags.DEFINE_boolean("multi_label_flag",False,"use multi label or single label.")
-filter_sizes=[1,2,3,4,5,6,7] #[1,2,3,4,5,6,7]
+tf.app.flags.DEFINE_string("save_file_name",'train_hist.p','output hsitory file name')
+filter_sizes=[2] #[1,2,3,4,5,6,7]
 vocab_size  = 400000 #no use
 
 #1.load data(X:list of lint,y:int). 2.create session. 3.feed data. 4.training (5.validation) ,(6.prediction)
 def main(_):
-
+    filter_sizes=[1,2,3,4,5,6,7] #[1,2,3,4,5,6,7]
+    vocab_size  = 400000 #no use
     #1.load the data
     trainX,trainY,testX,testY = get_data('../../datafile/train_id_mat.npy','../../datafile/test_id_mat.npy')
     print "The size of the training data is ", trainX.shape[0]
@@ -110,46 +112,13 @@ def main(_):
         # pickle.dump(test_loss_hist,open('test_loss.p','wb'))
         # pickle.dump(test_acc_hist,open('test_acc.p','wb'))
         train_hist = [train_loss_hist,train_acc_hist,test_loss_hist,test_acc_hist]
-        pickle.dump(train_hist,open('train_hist.p','wb'))
+        pickle.dump(train_hist,open(FLAGS.save_file_name,'wb'))
 
 
 
 
     pass
 
-# def assign_pretrained_word_embedding(sess,vocabulary_index2word,vocab_size,textCNN,word2vec_model_path=None):
-#     print("using pre-trained word emebedding.started.word2vec_model_path:",word2vec_model_path)
-#     # word2vecc=word2vec.load('word_embedding.txt') #load vocab-vector fiel.word2vecc['w91874']
-#     word2vec_model = word2vec.load(word2vec_model_path, kind='bin')
-#     word2vec_dict = {}
-#     for word, vector in zip(word2vec_model.vocab, word2vec_model.vectors):
-#         word2vec_dict[word] = vector
-#     word_embedding_2dlist = [[]] * vocab_size  # create an empty word_embedding list.
-#     word_embedding_2dlist[0] = np.zeros(FLAGS.embed_size)  # assign empty for first word:'PAD'
-#     bound = np.sqrt(6.0) / np.sqrt(vocab_size)  # bound for random variables.
-#     count_exist = 0;
-#     count_not_exist = 0
-#     for i in range(1, vocab_size):  # loop each word
-#         word = vocabulary_index2word[i]  # get a word
-#         embedding = None
-#         try:
-#             embedding = word2vec_dict[word]  # try to get vector:it is an array.
-#         except Exception:
-#             embedding = None
-#         if embedding is not None:  # the 'word' exist a embedding
-#             word_embedding_2dlist[i] = embedding;
-#             count_exist = count_exist + 1  # assign array to this word.
-#         else:  # no embedding for this word
-#             word_embedding_2dlist[i] = np.random.uniform(-bound, bound, FLAGS.embed_size);
-#             count_not_exist = count_not_exist + 1  # init a random value for the word.
-#     word_embedding_final = np.array(word_embedding_2dlist)  # covert to 2d array.
-#     word_embedding = tf.constant(word_embedding_final, dtype=tf.float32)  # convert to tensor
-#     t_assign_embedding = tf.assign(textCNN.Embedding,word_embedding)  # assign this value to our embedding variables of our model.
-#     sess.run(t_assign_embedding);
-#     print("word. exists embedding:", count_exist, " ;word not exist embedding:", count_not_exist)
-#     print("using pre-trained word emebedding.ended...")
-
-# 在验证集上做验证，报告损失、精确度
 def do_eval(sess,textCNN,evalX,evalY,batch_size):
     number_examples=len(evalX)
     eval_loss,eval_acc,eval_counter=0.0,0.0,0
